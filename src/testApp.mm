@@ -109,23 +109,26 @@ void testApp::draw(){
 
 	string sentence = whatToType;
 	ofRectangle box = font.getStringBoundingBox(sentence, 0, 0);
-	float targetW = ofGetWidth() * 0.8;
+	float targetW = ofGetWidth() * 0.7;
 	if (box.width > targetW){
 		float charW = box.width / (float)sentence.size();
-
 		float times = box.width / targetW;
 
 		for(int i = 0 ; i < times; i++){
-			int index = i * targetW / charW;
+			int offset = 0;
+			int index = offset + i * targetW / charW;
 			bool fixed = false;
+			int c = 0;
 			while (!fixed ) {
 				if(index == 0) break;
 				if (sentence[index] == ' '){
 					fixed = true;
 					sentence[index] = '\n';
 					//sentence[index-1] = '*';
+					offset += c;
 				}
 				index--;
+				c++;
 			}
 		}
 	}
