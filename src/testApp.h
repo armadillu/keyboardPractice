@@ -4,6 +4,8 @@
 #define ACCURACY_HOSTORY		100.0
 #define PLOT_UPDATE_INTERVAL	.1
 #define PLOT_SAMPLES			800
+#define PLOT_H					( ofGetHeight() * 0.12 )
+#define BLUISH_COLOR			(ofSetColor(64, 128, 128) )
 #import "ofMain.h"
 #include "ofxHistoryPlot.h"
 
@@ -44,10 +46,12 @@ class testApp : public ofBaseApp{
 	vector<float> lastTimes;
 	vector<bool> lastTyped;
 	float plotUpdateTime;
+	map<char,int> missesSoFar;
+	map<char,int> typedSoFar;
+	int mostMissed, mostTyped;
 
 	ofxHistoryPlot * plot;
 	ofxHistoryPlot * plot2;
-	ofxHistoryPlot * plot3;
 	int wpm;
 	float accuracy;
 };

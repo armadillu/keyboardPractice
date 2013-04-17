@@ -2,6 +2,7 @@
 #include "testApp.h"
 #import <Cocoa/Cocoa.h>
 
+string kb[3] = {"qwertyuiop", "asdfghjkl","zxcvbnm,."};
 
 void testApp::setup(){
 
@@ -9,7 +10,7 @@ void testApp::setup(){
 	ofEnableAlphaBlending();
 	ofBackground(22);
 	font.loadFont("CPMono_v07 Bold.otf", 55, true, true, true);
-	//fontSmall.loadFont("CPMono_v07 Plain.otf", 20, true, true, false);
+	fontSmall.loadFont("CPMono_v07 Light.otf", 19, true, true, true);
 
 	NSStringEncoding encoding = NSISOLatin1StringEncoding;
 	NSString * path = [NSString stringWithUTF8String: ofToDataPath("text.txt", true).c_str()];
@@ -30,11 +31,14 @@ void testApp::setup(){
 		}
 	}
 
+	mostTyped = mostMissed = 1;
 	paragraphIndex = 0;
 	nextSentence();
 
 	ok.loadSound("keydown.wav");
 	ko.loadSound("error.wav");
+	ok.setVolume(0.5);
+	ko.setVolume(0.5);
 
 	timeLastOk = 0;
 	ofSetFullscreen(true);
@@ -58,6 +62,15 @@ void testApp::setup(){
 	plot2->setBackgroundColor(ofColor(0,64));
 
 	plotUpdateTime = 0;
+
+	//fill in keyb
+	for (int i = 0; i<3; i++) {
+		for (int j = 0; j< kb[i].size(); j++) {
+			char c = kb[i][j];
+			missesSoFar[c] = 0;
+			typedSoFar[c] = 0;
+		}
+	}
 }
 
 void testApp::nextSentence(){
@@ -107,6 +120,9 @@ void testApp::update(){
 
 void testApp::draw(){
 
+	BLUISH_COLOR;
+	ofRect(0,0,ofGetWidth(), ofGetHeight() * 0.025);
+	
 	string sentence = whatToType;
 	ofRectangle box = font.getStringBoundingBox(sentence, 0, 0);
 	float targetW = ofGetWidth() * 0.7;
@@ -151,23 +167,52 @@ void testApp::draw(){
 		if(cursor[i]!='\n') cursor[i] = ' ';
 	}
 
-	ofSetColor(255);
+	ofSetColor(233);
 	font.drawStringAsShapes( remaining , ofGetWidth()/2 - box.width/2, ofGetHeight()/2 - box.height/2);
 	ofSetColor(64);
 	font.drawStringAsShapes( typed , ofGetWidth()/2 - box.width/2, ofGetHeight()/2 - box.height/2);
-	ofSetColor(64, 128, 128);
+	BLUISH_COLOR;
 	font.drawString(cursor, ofGetWidth()/2 - box.width/2, ofGetHeight()/2 - box.height/2 + 20);
 
 //	string score = "accuracy: " + ofToString( accuracy * 100, 2 ) + "  wpm: " + ofToString(wpm);
 //	ofRectangle rr = fontSmall.getStringBoundingBox(score, 0, 0);
 //	fontSmall.drawString(score, 20,30);
 
-	int pltH = ofGetHeight() * 0.15;
-	plot->draw(0, ofGetHeight() - pltH, ofGetWidth()/2, pltH);
-	plot2->draw(ofGetWidth()/2, ofGetHeight() - pltH, ofGetWidth()/2, pltH);
+
+	ofSetColor(128);
+
+	fontSmall.setLetterSpacing(1.55);
+	float h = 30;
+	float off = 10;
+	ofRectangle r = fontSmall.getStringBoundingBox("m",0,0);
+	float charW = r.width + r.x + 2.9;
+	float kbW = charW * kb[0].size();
+	ofVec2f pos = ofVec2f(ofGetWidth()/2 - kbW * 0.5 ,ofGetHeight() - 3 * h);
+
+//	for (int i = 0; i<3; i++) {
+//		fontSmall.drawString(kb[i], pos.x + i * off, pos.y + i * h);
+//	}
+
+	ofSetColor(255,0,0);
+	for (int i = 0; i<3; i++) {
+		for (int j = 0; j< kb[i].size(); j++) {
+			char c = kb[i][j];
+			if (missesSoFar[c] > typedSoFar[c]){
+				float a = 10 + 245 * ofClamp((float) missesSoFar[c] / mostMissed, 0,1);
+				ofSetColor( ofColor( 255,32,32, a ) );
+			}else{
+				float a = 10 + 245 * ofClamp((float) typedSoFar[c] / mostTyped, 0,1);
+				ofSetColor( ofColor( 32,255,32, a ) );
+			}
+			fontSmall.drawString( ofToString(c), pos.x + i * off + j * charW, pos.y + i * h);
+		}
+	}
+
+	float gap = 40;
+	plot->draw(0, ofGetHeight() - PLOT_H, ofGetWidth()/2 - gap - kbW / 2, PLOT_H);
+	plot2->draw(ofGetWidth()/2 + kbW / 2 + gap, ofGetHeight() - PLOT_H , ofGetWidth()/2 - kbW / 2 - gap, PLOT_H);
+
 }
-
-
 
 void testApp::keyPressed(int key){
 
@@ -182,6 +227,8 @@ void testApp::keyPressed(int key){
 	}
 	
 	char k = key;
+	char expectedChar = tolower(whatToType[sentenceIndex]);
+
 	if (k == whatToType[sentenceIndex]){
 		if (sentenceIndex > 0){
 			//averageTypeTime = 0.1 * (ofGetElapsedTimef() - timeLastOk) + 0.9 * (averageTypeTime);
@@ -194,9 +241,25 @@ void testApp::keyPressed(int key){
 		ok.play();
 		lastTyped.push_back(true);
 		timeLastOk = ofGetElapsedTimef();
+		typedSoFar[expectedChar] = typedSoFar[expectedChar] + 1;
+
+		if (typedSoFar[expectedChar] > mostTyped){
+			mostTyped = typedSoFar[expectedChar];
+		}
+
 	}else{
+		if (sentenceIndex == 0 && k ==' '){ // hotfix for hansi's end of sentence punctuation mark space behavior
+			ok.play();
+			return;
+		}
+
 		ko.play();
 		lastTyped.push_back(false);
+
+		missesSoFar[expectedChar] = missesSoFar[expectedChar] + 1;
+		if (missesSoFar[expectedChar] > mostMissed){
+			mostMissed = missesSoFar[expectedChar];
+		}
 	}
 
 	if (lastTyped.size() > ACCURACY_HOSTORY){
